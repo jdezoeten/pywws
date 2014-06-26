@@ -80,6 +80,8 @@ class RegularTasks(object):
             os.makedirs(self.uploads_directory)
         # delay creation of a Twitter object until we know it's needed
         self.twitter = None
+        # delay creation of a MQTT client until we know it's needed
+        self.mosquittoClient = None
         # create a YoWindow object
         self.yowindow = YoWindow.YoWindow(self.calib_data)
         # get daytime end hour, in UTC
@@ -197,6 +199,8 @@ class RegularTasks(object):
             return True
         for template in eval(self.params.get('live', 'text', '[]')):
             return True
+        for queuename in eval(self.params.get('live', 'mqtt', '[]')):
+            return True
         return False
 
     def _parse_templates(self, section, option):
@@ -219,6 +223,9 @@ class RegularTasks(object):
             if templates not in (None, '[]'):
                 for template in eval(templates):
                     self.do_twitter(template)
+        for section in sections:
+            for queuename in self._parse_templates(section, 'mqtt'):
+                self.do_mqtt(queuename,live_data)
         uploads = []
         local_files = []
         service_done = []
@@ -386,6 +393,19 @@ class RegularTasks(object):
         self.tweet_queue.append(tweet)
         if self.asynch:
             self.wake_thread.set()
+
+    def do_mqtt(self, config, data=None):
+        configs = config[0].split(",")
+        if not self.mosquittoClient:
+            import mosquitto
+            self.mosquittoClient = mosquitto.Mosquitto(configs[3])
+            self.mosquittoClient.username_pw_set(configs[4], configs[5])
+        self.mosquittoClient.connect(configs[1])
+        for key in data:
+            self.mosquittoClient.publish(configs[0] + "/" + key, str(data[key]), 1)
+        self.logger.info("Publishing to MQTT")
+        self.mosquittoClient.loop(5)
+        self.mosquittoClient.disconnect()
 
     def do_plot(self, template):
         self.logger.info("Graphing %s", template)
