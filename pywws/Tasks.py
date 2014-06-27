@@ -395,6 +395,7 @@ class RegularTasks(object):
             self.wake_thread.set()
 
     def do_mqtt(self, config, data=None):
+        import time
         configs = config[0].split(",")
         if not self.mosquittoClient:
             import mosquitto
@@ -402,9 +403,10 @@ class RegularTasks(object):
             self.mosquittoClient.username_pw_set(configs[4], configs[5])
         self.mosquittoClient.connect(configs[1])
         for key in data:
-            self.mosquittoClient.publish(configs[0] + "/" + key, str(data[key]), 1)
+            self.mosquittoClient.publish(configs[0] + "/" + key, str(data[key]), 2)
+            print key + " : " + str(data[key])
+            self.mosquittoClient.loop(5)
         self.logger.info("Publishing to MQTT")
-        self.mosquittoClient.loop(5)
         self.mosquittoClient.disconnect()
 
     def do_plot(self, template):
